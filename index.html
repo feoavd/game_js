@@ -1,0 +1,439 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Game_JS</title>
+<link rel="stylesheet" href="./style.css">
+</head>
+<body>
+<div id="gameContainer">
+  <div id="startScreen" class="screen visible center">
+    <h2>Доберись до ВКСИИТ</h2>
+    <h3>Помоги добраться Сергею Лазареву на мероприятие во ВКСИИТ через сугробы</h3>
+    <div style="margin:12px 0">
+      <input id="playerName" placeholder="Введите имя игрока" maxlength="20" />
+      <button id="startBtn" disabled>Начать</button>
+    </div>
+    
+    <div class="controls-info">
+      <div class="small">Управление: ПРОБЕЛ или КЛИК/ТАП — прыжок. ESC — пауза.</div>
+      <div class="small">Цель: добежать до финиша, избегая столкновений с сугробами.</div>
+      <img src="./icon.png">
+    </div>
+  </div>
+
+  <div id="gameScreen" class="screen">
+    <canvas id="gameCanvas" width="900" height="360"></canvas>
+    <div id="hud">
+      <div><span id="playerLabel" class="small">Игрок:</span></div>
+      <div><span id="timeDisplay">00:00</span> — <span id="powerDisplay">50%</span></div>
+      <div><button id="pauseBtn">Пауза</button></div>
+    </div>
+  </div>
+
+  <div id="resultScreen" class="screen center">
+    <h3 id="resultTitle"></h3>
+    <div id="resultStats" class="small" style="margin:8px 0"></div>
+    <div>
+      <button id="restartBtn">Заново</button>
+      <button id="toStartBtn">В меню</button>
+    </div>
+  </div>
+
+  <div id="loseScreen" class="screen center">
+    <h3 id="loseTitle">Вы проиграли</h3>
+    <div id="loseReason" class="small" style="margin:8px 0"></div>
+    <div>
+      <button id="restartBtn2">Заново</button>
+      <button id="toStartBtn2">В меню</button>
+    </div>
+  </div>
+</div>
+
+<div style="display: none;">
+  <img id="myPlayerImage" src="./serg.png" />
+  <img id="myBackgroundImage" src="./back.webp" />
+</div>
+
+<script>
+const CONFIG = {
+  canvasWidth: 900,
+  groundColor: '#fff',
+  canvasHeight: 360,
+  obstacleColor: '#fff',
+  groundHeight: 60,
+  player: {x:40, width:50, height:170, jumpStrength:12, gravity:0.6},
+  scrollSpeed: 3,
+  obstacleWidth: 48,
+  obstacleGapMin: 160,
+  obstacleGapMax: 340,
+  batteryChance: 0.18,
+  batteryGain: 5,
+  startPower: 50,
+  finishDistance: 3000,
+};
+
+let playerNameInput = document.getElementById('playerName');
+let startBtn = document.getElementById('startBtn');
+let startScreen = document.getElementById('startScreen');
+let gameScreen = document.getElementById('gameScreen');
+let resultScreen = document.getElementById('resultScreen');
+let loseScreen = document.getElementById('loseScreen');
+let playerLabel = document.getElementById('playerLabel');
+let timeDisplay = document.getElementById('timeDisplay');
+let powerDisplay = document.getElementById('powerDisplay');
+let pauseBtn = document.getElementById('pauseBtn');
+let restartBtn = document.getElementById('restartBtn');
+let restartBtn2 = document.getElementById('restartBtn2');
+let toStartBtn = document.getElementById('toStartBtn');
+let toStartBtn2 = document.getElementById('toStartBtn2');
+let resultTitle = document.getElementById('resultTitle');
+let resultStats = document.getElementById('resultStats');
+let loseReason = document.getElementById('loseReason');
+
+let canvas = document.getElementById('gameCanvas');
+let ctx = canvas.getContext('2d');
+canvas.width = CONFIG.canvasWidth;
+canvas.height = CONFIG.canvasHeight;
+
+let playerImg = null;
+let backgroundImg = null;
+
+function loadImages() {
+  playerImg = new Image();
+  backgroundImg = new Image();
+  
+  let myPlayerImgElement = document.getElementById('myPlayerImage');
+  let myBackgroundImgElement = document.getElementById('myBackgroundImage');
+  
+  if (myPlayerImgElement && myPlayerImgElement.src) {
+    playerImg.src = myPlayerImgElement.src;
+  } else {
+    playerImg = createDefaultPlayerImage();
+  }
+  
+  if (myBackgroundImgElement && myBackgroundImgElement.src) {
+    backgroundImg.src = myBackgroundImgElement.src;
+  } else {
+    backgroundImg = createDefaultBackgroundImage();
+  }
+}
+
+function createDefaultPlayerImage() {
+  let canvas = document.createElement('canvas');
+  canvas.width = CONFIG.player.width;
+  canvas.height = CONFIG.player.height;
+  let ctx = canvas.getContext('2d');
+  
+  ctx.fillStyle = '#ff6347';
+  ctx.fillRect(0, 0, CONFIG.player.width, CONFIG.player.height);
+
+  return canvas;
+}
+
+function createDefaultBackgroundImage() {
+  let canvas = document.createElement('canvas');
+  canvas.width = CONFIG.canvasWidth;
+  canvas.height = CONFIG.canvasHeight;
+  let ctx = canvas.getContext('2d');
+  
+  return canvas;
+}
+
+let gameState = 'start'; 
+let name = '';
+let timerSec = 0;
+let power = CONFIG.startPower;
+let lastFrame = 0;
+let distance = 0;
+let obstacles = [];
+let batteries = [];
+let player = null;
+let bgOffset = 0;
+let elapsedSincePowerTick = 0;
+
+window.onload = function() {
+  loadImages();
+};
+
+playerNameInput.addEventListener('input', () => {
+  startBtn.disabled = playerNameInput.value.trim().length === 0;
+});
+startBtn.addEventListener('click', () => {
+  name = playerNameInput.value.trim();
+  startGame();
+});
+pauseBtn.addEventListener('click', togglePause);
+restartBtn.addEventListener('click', restart);
+restartBtn2.addEventListener('click', restart);
+toStartBtn.addEventListener('click', backToMenu);
+toStartBtn2.addEventListener('click', backToMenu);
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') togglePause();
+  if (gameState === 'running' && (e.key === 'w' || e.key === 'W' || e.code === 'Space')) {
+    playerJump();
+  }
+});
+
+canvas.addEventListener('click', () => {
+  if (gameState === 'running') {
+    playerJump();
+  }
+});
+canvas.addEventListener('touchstart', (e) => {
+  if (gameState === 'running') {
+    playerJump();
+    e.preventDefault();
+  }
+});
+
+function startGame() {
+  playerLabel.textContent = `Игрок: ` + name;
+  showScreen('game');
+  resetGame();
+  gameState = 'running';
+  lastFrame = performance.now();
+  requestAnimationFrame(loop);
+}
+
+function resetGame() {
+  timerSec = 0;
+  power = CONFIG.startPower;
+  distance = 0;
+  obstacles = [];
+  batteries = [];
+  bgOffset = 0;
+  elapsedSincePowerTick = 0;
+  player = {
+    x: CONFIG.player.x,
+    y: canvas.height - CONFIG.groundHeight - CONFIG.player.height,
+    vy: 0,
+    w: CONFIG.player.width,
+    h: CONFIG.player.height,
+    onGround: true
+  };
+  let x = canvas.width + 120;
+  while (x < canvas.width + 1600) {
+    spawnObstacleAt(x);
+    x += randomRange(CONFIG.obstacleGapMin, CONFIG.obstacleGapMax);
+  }
+}
+
+function restart() {
+  showScreen('game');
+  resetGame();
+  gameState = 'running';
+  lastFrame = performance.now();
+  requestAnimationFrame(loop);
+}
+
+function backToMenu() {
+  showScreen('start');
+  gameState = 'start';
+}
+
+function showScreen(nameScreen) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('visible'));
+  if (nameScreen === 'start') startScreen.classList.add('visible');
+  if (nameScreen === 'game') gameScreen.classList.add('visible');
+  if (nameScreen === 'result') resultScreen.classList.add('visible');
+  if (nameScreen === 'lose') loseScreen.classList.add('visible');
+}
+
+function togglePause() {
+  if (gameState === 'running') {
+    gameState = 'paused';
+    pauseBtn.textContent = 'Возобновить';
+  } else if (gameState === 'paused') {
+    gameState = 'running';
+    pauseBtn.textContent = 'Пауза';
+    lastFrame = performance.now();
+    requestAnimationFrame(loop);
+  }
+}
+
+function playerJump() {
+  if (player.onGround && gameState === 'running') {
+    player.vy = -CONFIG.player.jumpStrength;
+    player.onGround = false;
+  }
+}
+
+function spawnObstacleAt(x) {
+  let h = randomRange(32, 120);
+  let y = canvas.height - CONFIG.groundHeight - h;
+  obstacles.push({x, y, w: CONFIG.obstacleWidth, h});
+  if (Math.random() < CONFIG.batteryChance) {
+    batteries.push({x: x + CONFIG.obstacleWidth/2 - 12, y: y - 34, w:24, h:24, taken:false});
+  }
+}
+
+function randomRange(min, max){ return Math.floor(min + Math.random() * (max - min)); }
+
+function loop(ts) {
+  if (gameState !== 'running') return;
+  let dt = (ts - lastFrame) / 1000;
+  lastFrame = ts;
+
+  timerSec += dt;
+  elapsedSincePowerTick += dt;
+  if (elapsedSincePowerTick >= 1) {
+    elapsedSincePowerTick -= 1;
+    power = Math.max(0, power - 1);
+    if (power <= 0) {
+      endGame(false, 'Батарея исчерпана');
+      return;
+    }
+  }
+
+  bgOffset += CONFIG.scrollSpeed;
+  distance += CONFIG.scrollSpeed;
+
+
+  for (let ob of obstacles) ob.x -= CONFIG.scrollSpeed;
+  for (let b of batteries) { b.x -= CONFIG.scrollSpeed; }
+
+  obstacles = obstacles.filter(ob => ob.x + ob.w > -50);
+  batteries = batteries.filter(b => b.x + b.w > -50 && !b.taken);
+
+  player.vy += CONFIG.player.gravity;
+  player.y += player.vy;
+  let onAnyPlatform = false;
+  let groundY = canvas.height - CONFIG.groundHeight - player.h;
+  
+  for (let ob of obstacles) {
+    if (checkCollisionWithPlatform(player, ob)) {
+      if (player.vy > 0 && player.y + player.h <= ob.y + 10) {
+        player.y = ob.y - player.h;
+        player.vy = 0;
+        onAnyPlatform = true;
+        player.onGround = true;
+        break;
+      }
+      else if (player.vy <= 0 || 
+               (player.y + player.h > ob.y + 10 && 
+                player.x + player.w > ob.x + 10 && 
+                player.x < ob.x + ob.w - 10)) {
+        endGame(false, 'Столкновение со стенкой. Вы не сможете спеть "Снег в океане((("');
+        return;
+      }
+    }
+  }
+  
+  if (!onAnyPlatform) {
+    if (player.y >= groundY) { 
+      player.y = groundY; 
+      player.vy = 0; 
+      player.onGround = true; 
+    } else {
+      player.onGround = false;
+    }
+  }
+
+  for (let b of batteries) {
+    if (!b.taken && rectOverlap(player.x, player.y, player.w, player.h, b.x, b.y, b.w, b.h)) {
+      b.taken = true;
+      power = Math.min(100, power + CONFIG.batteryGain);
+    }
+  }
+
+  if (distance >= CONFIG.finishDistance) {
+    endGame(true);
+    return;
+  }
+
+  drawScene();
+  updateHUD();
+  requestAnimationFrame(loop);
+}
+
+function checkCollisionWithPlatform(player, platform) {
+  return !(player.x + player.w < platform.x || 
+           player.x > platform.x + platform.w || 
+           player.y + player.h < platform.y || 
+           player.y > platform.y + platform.h);
+}
+
+function endGame(win, reason='') {
+  gameState = win ? 'finished' : 'lost';
+  if (win) {
+    showScreen('result');
+    resultTitle.textContent = 'Вы вовремя добрадись до мероприятия! Поздравляем!';
+    resultStats.textContent = `Игрок: ${name}. Время: ${formatTime(timerSec)}.`;
+  } else {
+    showScreen('lose');
+    loseReason.textContent = reason + `. Пройдено: ${Math.floor(distance)} / ${CONFIG.finishDistance}px`;
+  }
+}
+
+function updateHUD() {
+  timeDisplay.textContent = formatTime(timerSec);
+  powerDisplay.textContent = Math.round(power) + '%';
+}
+
+function formatTime(sec) {
+  let s = Math.floor(sec);
+  let mm = Math.floor(s/60);
+  let ss = s%60;
+  return String(mm).padStart(2,'0') + ':' + String(ss).padStart(2,'0');
+}
+
+function drawScene() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  
+  if (backgroundImg && backgroundImg.complete) {
+    ctx.drawImage(backgroundImg, 0, 0, canvas.width, canvas.height);
+  } else {
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height - CONFIG.groundHeight);
+  }
+
+ctx.fillStyle = CONFIG.obstacleColor; 
+  for (let ob of obstacles) {
+    ctx.fillRect(Math.round(ob.x), Math.round(ob.y), ob.w, ob.h);
+  }
+
+ctx.fillStyle = CONFIG.groundColor; 
+ctx.fillRect(0, canvas.height - CONFIG.groundHeight, canvas.width, CONFIG.groundHeight);
+
+    let remaining = Math.max(0, CONFIG.finishDistance - distance);
+  if (remaining < canvas.width) {
+    let fx = canvas.width - remaining;
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(fx, canvas.height - CONFIG.groundHeight - 120, 6, 120);
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(fx+6, canvas.height - CONFIG.groundHeight - 120, 8, 120);
+  }
+
+  for (let b of batteries) {
+    if (b.taken) continue;
+    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--battery') || '#ffd700';
+    ctx.fillRect(Math.round(b.x), Math.round(b.y), b.w, b.h);
+    ctx.fillStyle = '#b8860b';
+    ctx.fillRect(Math.round(b.x)+4, Math.round(b.y)+6, b.w-8, b.h-10);
+  }
+
+  if (playerImg && playerImg.complete) {
+    ctx.drawImage(playerImg, Math.round(player.x), Math.round(player.y), player.w, player.h);
+  } else if (playerImg && playerImg instanceof HTMLCanvasElement) {
+    ctx.drawImage(playerImg, Math.round(player.x), Math.round(player.y), player.w, player.h);
+  } else {
+    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--player') || '#ff6347';
+    ctx.fillRect(Math.round(player.x), Math.round(player.y), player.w, player.h);
+    ctx.fillStyle = '#000';
+    ctx.fillRect(Math.round(player.x+player.w-12), Math.round(player.y+10), 6, 6);
+  }
+}
+
+function rectOverlap(x1,y1,w1,h1,x2,y2,w2,h2) {
+  return !(x1+w1 < x2 || x2+w2 < x1 || y1+h1 < y2 || y2+h2 < y1);
+}
+
+drawScene();
+updateHUD();
+
+</script>
+</body>
+</html>

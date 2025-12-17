@@ -1,0 +1,127 @@
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Infant:ital,wght@0,300..700;1,300..700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Pangolin&display=swap');
+
+
+*{
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    }
+
+html,body{
+    height:100%;
+    margin:0;
+    font-family:Pangolin Static;
+    background:linear-gradient(#e9e9e9, #59c4ee);;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+    :root{--bg:#a9c4ce;
+        --ground:#6b8e23;
+        --player:#ff6347;
+        --ob:#444;
+        --battery:#ffd700
+    }
+
+  #gameContainer{
+    width:100%;
+    max-width:1000px;
+    margin:20px auto;
+    background:#eef8ff;
+    border-radius:8px;
+    padding:12px;
+    box-shadow:0 6px 24px rgba(0,0,0,.12);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+}
+
+h2, h3{
+    margin: 10px;
+    background-color: #a2e3d242;
+    padding: 20px;
+    border-radius: 20px;
+    font-weight: 100;
+}
+
+h2{
+    font-family: Cormorant Infant;
+    font-weight: 900;
+    background-color: #9dffe57f;
+}
+
+.controls-info img{
+    width: 100px;
+    cursor: pointer;
+}
+
+    .controls-info img:hover{
+        width: 150px;
+        transition: 1s;
+    }
+
+  .screen{
+    display:none
+}
+  .visible{
+    display:block
+}
+  .center{
+    text-align:center
+}
+
+  input[type="text"]{
+    padding:8px;
+    font-size:16px;
+    width:220px;
+    margin-right:8px
+}
+
+  button{
+    padding:8px 12px;
+    font-size:16px;
+    border: solid 1px #000;
+    border-radius: 10px;
+    cursor:pointer;
+    background-color: #3c7084;
+    color: white ;
+}
+
+  canvas{
+    display:block;
+    width:100%;
+    height:360px;
+    border: solid 1px #000;
+    background:linear-gradient(#87ceeb, #7ec0ee);
+    border-radius:6px;
+    box-shadow:inset 0 -30px 40px rgba(0,0,0,.06)
+}
+
+  #hud{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-top:8px;
+}
+  #timeDisplay,#powerDisplay{
+    font-weight:600
+}
+
+  .small{
+    font-size:15px;
+    color:#333;
+}
+  .footer{
+    margin-top:10px;
+    text-align:center;
+    color:#444
+}
+  .controls-info{margin:10px 0;
+    padding:8px;
+    background:#e9ecef;
+    border-radius:4px
+}
