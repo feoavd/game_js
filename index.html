@@ -316,7 +316,7 @@ function loop(ts) {
                (player.y + player.h > ob.y + 10 && 
                 player.x + player.w > ob.x + 10 && 
                 player.x < ob.x + ob.w - 10)) {
-        endGame(false, 'Столкновение со стенкой. Вы не сможете спеть "Снег в океане((("');
+        endGame(false, 'Столкновение с сугробои.... Вы не сможете спеть "Снег в океане"(((');
         return;
       }
     }
@@ -360,7 +360,7 @@ function endGame(win, reason='') {
   gameState = win ? 'finished' : 'lost';
   if (win) {
     showScreen('result');
-    resultTitle.textContent = 'Вы вовремя добрадись до мероприятия! Поздравляем!';
+    resultTitle.textContent = 'Вы вовремя добрались до мероприятия! Поздравляем!';
     resultStats.textContent = `Игрок: ${name}. Время: ${formatTime(timerSec)}.`;
   } else {
     showScreen('lose');
@@ -436,4 +436,5 @@ updateHUD();
 
 </script>
 </body>
+
 </html>
